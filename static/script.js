@@ -1,85 +1,103 @@
-document.getElementById("send-btn").addEventListener("click", sendMessage);
-document
-  .getElementById("user-input")
-  .addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
+const form = document.getElementById("query-form");
+const chatBox = document.getElementById("chat-box");
+const voiceBtn = document.getElementById("voice-btn");
+const userInput = document.getElementById("user-input");
+
+let recognizing = false;
+let recognition;
+
+// ✅ Voice Recognition Setup
+if ("webkitSpeechRecognition" in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-IN"; // Indian English
+
+  recognition.onstart = () => {
+    recognizing = true;
+    voiceBtn.style.background = "#ffcc00";
+    voiceBtn.innerText = "🎧";
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    userInput.value = transcript;
+  };
+
+  recognition.onerror = (event) => {
+    console.error("Speech error:", event.error);
+  };
+
+  recognition.onend = () => {
+    recognizing = false;
+    voiceBtn.style.background = "#00ff99";
+    voiceBtn.innerText = "🎙️";
+  };
+
+  voiceBtn.addEventListener("click", () => {
+    if (recognizing) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
   });
-
-const imageInput = document.getElementById("image-file");
-const imagePreview = document.getElementById("image-preview");
-let imageBase64 = null;
-
-// Preview image
-imageInput.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      imageBase64 = event.target.result;
-      imagePreview.innerHTML = `<img src="${imageBase64}" alt="Uploaded image">`;
-    };
-    reader.readAsDataURL(file);
-  } else {
-    imageBase64 = null;
-    imagePreview.innerHTML = "";
-  }
-});
-
-async function sendMessage() {
-  const userInput = document.getElementById("user-input").value.trim();
-  if (!userInput && !imageBase64) return;
-
-  const chatBox = document.getElementById("chat-box");
-
-  // Show user message
-  if (userInput)
-    chatBox.innerHTML += `<div class="message user">👩‍🌾 You: ${userInput}</div>`;
-  if (imageBase64)
-    chatBox.innerHTML += `<div class="message user"><img src="${imageBase64}" width="150"></div>`;
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  // Show loading text
-  const loadingMsg = document.createElement("div");
-  loadingMsg.classList.add("message", "bot");
-  loadingMsg.textContent = "🤖 AgriBot is analyzing...";
-  chatBox.appendChild(loadingMsg);
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  try {
-    const res = await fetch("/get", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ msg: userInput, image: imageBase64 }),
-    });
-
-    const data = await res.json();
-    const botReply = formatResponse(data.reply);
-
-    loadingMsg.remove();
-    chatBox.innerHTML += `<div class="message bot">🤖 AgriBot:<br>${botReply}</div>`;
-    chatBox.scrollTop = chatBox.scrollHeight;
-  } catch (err) {
-    console.error(err);
-    loadingMsg.textContent = "⚠️ Error: Couldn't connect to server.";
-  }
-
-  // Reset inputs
-  document.getElementById("user-input").value = "";
-  imageInput.value = "";
-  imagePreview.innerHTML = "";
-  imageBase64 = null;
+} else {
+  voiceBtn.disabled = true;
+  voiceBtn.title = "Speech recognition not supported in this browser";
 }
 
-// Format Gemini response as bullet points
-function formatResponse(text) {
-  const lines = text
-    .split("\n")
-    .filter((l) => l.trim() !== "")
-    .map((l) => {
-      if (/^[-*•]\s/.test(l)) return `<li>${l.replace(/^[-*•]\s*/, "")}</li>`;
-      if (/^\d+\.\s/.test(l)) return `<li>${l.replace(/^\d+\.\s*/, "")}</li>`;
-      return `<li>${l}</li>`;
-    })
-    .join("");
-  return `<ul>${lines}</ul>`;
+// ✅ Chat Functionality
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const text = userInput.value.trim();
+  const imageFile = document.getElementById("image-file").files[0];
+  if (!text && !imageFile) return;
+
+  addMessage("user", text || "[📷 Image sent]");
+
+  const formData = new FormData();
+  formData.append("query", text);
+  if (imageFile) formData.append("image", imageFile);
+
+  const typingMsg = addMessage("bot", "Typing...");
+  typingMsg.classList.add("typing");
+
+  const res = await fetch("/ask", { method: "POST", body: formData });
+  const data = await res.json();
+
+  chatBox.removeChild(typingMsg);
+  typeMessage("bot", formatResponse(data.response));
+
+  form.reset();
+});
+
+function addMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.classList.add("message", sender);
+  msg.innerHTML = `<b>${sender === "user" ? "👩‍🌾 You:" : "🤖 Bot:"}</b> ${text}`;
+  chatBox.appendChild(msg);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  return msg;
+}
+
+function formatResponse(response) {
+  return response.replace(/\n/g, "<br>• ");
+}
+
+function typeMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.classList.add("message", sender);
+  chatBox.appendChild(msg);
+
+  let i = 0;
+  const interval = setInterval(() => {
+    msg.innerHTML = `<b>${sender === "user" ? "👩‍🌾 You:" : "🤖 Bot:"}</b> ${text.substring(0, i)}|`;
+    i++;
+    if (i > text.length) {
+      clearInterval(interval);
+      msg.innerHTML = `<b>${sender === "user" ? "👩‍🌾 You:" : "🤖 Bot:"}</b> ${text}`;
+    }
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }, 20);
 }

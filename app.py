@@ -1,46 +1,60 @@
-from flask import Flask, render_template, request, jsonify
+import os
+from flask import Flask, request, jsonify, render_template
 import google.generativeai as genai
 from PIL import Image
 import io
-import base64
 
 app = Flask(__name__)
 
-# ✅ Paste your Gemini API key here
-genai.configure(api_key="AIzaSyADzNnrQo5fy77CHOTaj4rn7z3Qazlr6FA")
+# ====== 🔑 GEMINI API KEY CONFIGURATION ======
+# Paste your Gemini API key here 👇
+GEMINI_API_KEY="AIzaSyADzNnrQo5fy77CHOTaj4rn7z3Qazlr6FA"
 
-# ✅ Gemini Vision model (for text + images)
-model = genai.GenerativeModel("models/gemini-2.5-flash")
+genai.configure(api_key=GEMINI_API_KEY)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
-@app.route("/get", methods=["POST"])
-def chat():
-    data = request.get_json()
-    user_input = data.get("msg", "")
-    image_data = data.get("image", None)
 
-    contents = [user_input]
+# ========== FUNCTION TO CHECK AGRICULTURE RELEVANCE ==========
+def is_agriculture_query(text):
+    keywords = [
+        "crop", "soil", "fertilizer", "pesticide", "harvest", "irrigation",
+        "farming", "seed", "plant", "weather", "agriculture", "farmer", "yield",
+        "organic", "insect", "climate", "plough", "sowing"
+    ]
+    return any(word.lower() in text.lower() for word in keywords)
 
-    # If image is sent, decode and include it
-    if image_data:
-        try:
-            image_bytes = base64.b64decode(image_data.split(",")[1])
-            image = Image.open(io.BytesIO(image_bytes))
-            contents.append(image)
-        except Exception as e:
-            print("Image error:", e)
+
+# ========== ROUTES ==========
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/ask', methods=['POST'])
+def ask():
+    text = request.form.get("query", "")
+    image = request.files.get("image")
+
+    if text and not is_agriculture_query(text):
+        return jsonify({
+            "response": "🌱 Please ask queries related to agriculture only.\n\nExample: How to improve soil fertility?"
+        })
 
     try:
-        response = model.generate_content(contents)
-        bot_reply = response.text
-    except Exception as e:
-        print("Error:", e)
-        bot_reply = "⚠️ Sorry, I couldn't process your request."
+        if image:
+            img = Image.open(io.BytesIO(image.read()))
+            prompt = text if text else "Analyze this agricultural image and explain what it shows."
+            response = model.generate_content([prompt, img])
+        else:
+            response = model.generate_content(text)
 
-    return jsonify({"reply": bot_reply})
+        reply = response.text.strip().replace("•", "\n•")
+        return jsonify({"response": reply})
+
+    except Exception as e:
+        return jsonify({"response": f"⚠️ Error: {str(e)}"})
+
 
 if __name__ == "__main__":
     app.run(debug=True)

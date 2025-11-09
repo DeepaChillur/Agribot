@@ -1,29 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>🌾 Agricultural Chatbot 🌿</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🌾 Agricultural Chatbot 🌾</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 <body>
-  <div class="chat-container">
-    <h2 class="title">🌾 Agricultural Chatbot 🌿</h2>
+  <div class="chat-page">
+    <div class="chat-container">
+      <header class="header">
+        <div class="title">🌾 Agricultural Chatbot 🌾</div>
+        <div class="subtitle">Ask about crops, soil, fertilizers, irrigation or upload a field image.</div>
+      </header>
 
-    <div id="chat-box" class="chat-box">
-      <div class="bot message">🤖 Hello Farmer! I’m your Agricultural Assistant. Ask me about crops, soil, irrigation, fertilizers, or upload a farm image.</div>
+      <main id="chat-box" class="chat-box">
+        <div class="message bot-message">
+          <div class="bubble">
+            <div class="from">🤖 Bot</div>
+            <div class="content">
+              • Hello! I’m your Agricultural Assistant.<br />
+              • Ask me about crops, soil, fertilizers, irrigation, or upload a farm image.
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="input-area">
+        <form id="query-form" enctype="multipart/form-data">
+          <input id="user-input" name="user_input" type="text" placeholder="Type or speak your agricultural query..." autocomplete="off" />
+          <input id="image-file" name="image" type="file" accept="image/*" />
+          <button id="voice-btn" type="button" title="Speak">🎙️</button>
+          <button type="submit" class="send-btn">Send</button>
+        </form>
+      </footer>
     </div>
-
-    <form id="query-form">
-      <div class="input-area">
-        <input type="text" id="user-input" placeholder="Speak or type your agricultural question..." required>
-        <button type="button" id="voice-btn" title="Speak"><span>🎙️</span></button>
-      </div>
-
-      <div class="file-area">
-        <input type="file" id="image-file" accept="image/*">
-        <button type="submit">Send 🚀</button>
-      </div>
-    </form>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
